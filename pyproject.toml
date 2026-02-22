@@ -1,0 +1,14 @@
+[project]
+name = "bwrap-compose"
+version = "0.1.0"
+description = "Compose bubblewrap profiles into a single bwrap command"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = ["typer", "PyYAML"]
+
+[project.scripts]
+bwrap-compose = "bwrap_compose.cli:main"
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"

@@ -1,0 +1,8 @@
+mounts:
+  - host: /home/user/.config/copilot
+    container: /root/.config/copilot
+    mode: ro
+env:
+  COPILOT_ENABLED: "1"
+args:
+  - "--unshare-net"

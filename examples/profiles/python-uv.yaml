@@ -1,0 +1,8 @@
+mounts:
+  - host: /usr/bin/python3
+    container: /usr/bin/python3
+    mode: ro
+env:
+  PYTHONUNBUFFERED: "1"
+args:
+  - "--unshare-pid"
