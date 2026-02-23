@@ -1,8 +1,14 @@
 from typing import List, Optional
 from pathlib import Path
+import json
 import shlex
 import subprocess
 import typer
+
+try:
+    import yaml as _yaml
+except ImportError:
+    _yaml = None
 
 from .config import load_profile, validate_profile
 from .composer import compose_profiles
@@ -233,6 +239,66 @@ def list_profiles(
 
     if not seen:
         typer.echo("No profiles found.")
+
+
+def _extract_special_mounts(profile):
+    """Move --tmpfs/--dev/--proc entries from *args* into dedicated profile keys."""
+    args = list(profile.get("args") or [])
+    _special = {"--tmpfs": "tmpfs", "--dev": "dev", "--proc": "proc"}
+    new_args = []
+    extracted = {}
+
+    i = 0
+    while i < len(args):
+        if args[i] in _special and i + 1 < len(args):
+            key = _special[args[i]]
+            extracted.setdefault(key, []).append(args[i + 1])
+            i += 2
+        else:
+            new_args.append(args[i])
+            i += 1
+
+    result = dict(profile)
+    result["args"] = new_args
+    result.update(extracted)
+    return result
+
+
+@app.command("from-command")
+def from_command(
+    command: str = typer.Argument(..., help="A bwrap command string to convert to a profile"),
+    output: Optional[str] = typer.Option(
+        None, "--output", "-o", help="Write profile YAML to a file instead of stdout"
+    ),
+):
+    """Generate a profile YAML from a raw bwrap command string.
+
+    Example::
+
+        bwrapc from-command "bwrap --ro-bind / / --setenv A 1 -- /bin/sh"
+    """
+    profile = parse_bwrap_command(command)
+    profile = _extract_special_mounts(profile)
+
+    # Remove empty/default fields for a clean profile.
+    cleaned = {}
+    key_order = ("mounts", "env", "tmpfs", "dev", "proc", "args", "run")
+    for key in key_order:
+        val = profile.get(key)
+        if val:
+            cleaned[key] = val
+
+    if _yaml is not None:
+        text = _yaml.dump(cleaned, default_flow_style=False, sort_keys=False)
+    else:
+        text = json.dumps(cleaned, indent=2) + "\n"
+
+    if output:
+        out = Path(output)
+        out.write_text(text)
+        typer.echo(f"Wrote profile to {out}")
+    else:
+        typer.echo(text, nl=False)
 
 
 def main():
