@@ -4,7 +4,7 @@ import shlex
 import subprocess
 import typer
 
-from .config import load_profile
+from .config import load_profile, validate_profile
 from .composer import compose_profiles
 from .builder import build_bwrap_command
 from .parser import parse_bwrap_command
@@ -179,6 +179,60 @@ def merge_commands(
 
     if run:
         subprocess.run(cmd_list)
+
+
+@app.command("validate")
+def validate(
+    profiles: List[str] = typer.Argument(..., help="Profile names or file paths to validate"),
+    config_dir: Optional[List[str]] = typer.Option(
+        None, "--config-dir", "-C",
+        help="Additional directory to search for profile YAML files",
+    ),
+):
+    """Validate one or more profile files for schema correctness."""
+    extra_dirs = [Path(d) for d in config_dir] if config_dir else []
+    has_errors = False
+
+    for p in profiles:
+        path = _resolve_profile_path(p, extra_dirs=extra_dirs)
+        data = load_profile(str(path), search_dirs=extra_dirs)
+        errors = validate_profile(data)
+        if errors:
+            has_errors = True
+            typer.echo(f"✖ {path}:", err=True)
+            for e in errors:
+                typer.echo(f"  - {e}", err=True)
+        else:
+            typer.echo(f"✔ {path}: valid")
+
+    if has_errors:
+        raise typer.Exit(code=1)
+
+
+@app.command("list-profiles")
+def list_profiles(
+    config_dir: Optional[List[str]] = typer.Option(
+        None, "--config-dir", "-C",
+        help="Additional directory to search for profiles",
+    ),
+):
+    """List available profile names from config directories."""
+    dirs = [Path(d) for d in config_dir] if config_dir else []
+    dirs.append(_BUILTIN_PROFILE_DIR)
+
+    seen = set()
+    for d in dirs:
+        if not d.is_dir():
+            continue
+        for ext in _PROFILE_EXTENSIONS:
+            for f in sorted(d.glob(f"*{ext}")):
+                name = f.stem
+                if name not in seen:
+                    seen.add(name)
+                    typer.echo(f"  {name}  ({f})")
+
+    if not seen:
+        typer.echo("No profiles found.")
 
 
 def main():

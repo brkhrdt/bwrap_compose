@@ -4,6 +4,15 @@ from typing import Dict, Any, List, Optional
 _RO_MODES = {"ro", "readonly"}
 
 
+def _as_list(val):
+    """Normalise a string-or-list value to a list."""
+    if val is None:
+        return []
+    if isinstance(val, str):
+        return [val]
+    return list(val)
+
+
 def build_bwrap_command(
     config: Dict[str, Any],
     run_cmd: Optional[List[str]] = None,
@@ -38,6 +47,14 @@ def build_bwrap_command(
         mode = str(mount.get("mode", "rw")).lower()
         flag = "--ro-bind" if mode in _RO_MODES else "--bind"
         cmd += [flag, host, container]
+
+    # Special filesystem mounts
+    for path in _as_list(config.get("tmpfs")):
+        cmd += ["--tmpfs", path]
+    for path in _as_list(config.get("dev")):
+        cmd += ["--dev", path]
+    for path in _as_list(config.get("proc")):
+        cmd += ["--proc", path]
 
     for key, value in (config.get("env") or {}).items():
         cmd += ["--setenv", key, str(value)]

@@ -1,0 +1,12 @@
+extends: python-uv
+description: "Python sandbox with tmpfs /tmp and network isolation"
+tmpfs:
+  - /tmp
+args:
+  - "--unshare-net"
+env:
+  SANDBOX: "1"
+run:
+  - python3
+  - -c
+  - "print('hello from sandbox')"
