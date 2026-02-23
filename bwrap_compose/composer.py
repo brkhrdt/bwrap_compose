@@ -4,33 +4,31 @@ from typing import Dict, Any, List
 def compose_profiles(profile_dicts: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Merge multiple profile dicts into a single configuration.
 
-    Rules (simple prototype):
-    - mounts: union of mounts, de-duplicated by full dict equality
-    - env: later profiles override earlier ones
-    - args: append unique args in order
+    Merge rules:
+      - **mounts** – union, de-duplicated by exact dict equality.
+      - **env** – later profiles override earlier keys.
+      - **args** – appended in order, duplicates skipped.
+      - **run** – last profile with a ``run`` key wins.
     """
-    merged = {
-        'mounts': [],
-        'env': {},
-        'args': [],
-        'run': None,
+    merged: Dict[str, Any] = {
+        "mounts": [],
+        "env": {},
+        "args": [],
+        "run": None,
     }
 
-    for p in profile_dicts:
-        mounts = p.get('mounts', []) or []
-        for m in mounts:
-            if m not in merged['mounts']:
-                merged['mounts'].append(m)
+    for profile in profile_dicts:
+        for mount in profile.get("mounts") or []:
+            if mount not in merged["mounts"]:
+                merged["mounts"].append(mount)
 
-        env = p.get('env', {}) or {}
-        merged['env'].update(env)
+        merged["env"].update(profile.get("env") or {})
 
-        args = p.get('args', []) or []
-        for a in args:
-            if a not in merged['args']:
-                merged['args'].append(a)
+        for arg in profile.get("args") or []:
+            if arg not in merged["args"]:
+                merged["args"].append(arg)
 
-        if 'run' in p:
-            merged['run'] = p.get('run')
+        if "run" in profile:
+            merged["run"] = profile["run"]
 
     return merged

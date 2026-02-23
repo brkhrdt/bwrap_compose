@@ -1,19 +1,26 @@
-bwrap_compose — compose bubblewrap (bwrap) profiles into a single bwrap command
+# bwrap_compose
 
-This is a small Python CLI prototype that composes named profiles (YAML) into a single bwrap command.
+Compose [bubblewrap](https://github.com/containers/bubblewrap) (`bwrap`) profiles into a single `bwrap` command.
 
-Quickstart
+## Quickstart
 
-1. Install dependencies (using uv):
+1. Install dependencies (using [uv](https://docs.astral.sh/uv/)):
 
+   ```sh
    uv sync
+   ```
 
-2. Run tests (using uv):
+2. Run tests:
 
+   ```sh
    uv run pytest
+   ```
 
-3. Run an example (dry run) via uv (runs the console script installed from pyproject.toml):
+3. Run an example (dry run):
 
+   ```sh
    uv run bwrap-compose -- python-uv --dry-run
+   ```
 
-See examples/profiles for sample profile YAML files.
+See `examples/profiles/` for sample profile YAML files and
+`bwrap_compose/CONFIG_SCHEMA.md` for the profile format reference.
