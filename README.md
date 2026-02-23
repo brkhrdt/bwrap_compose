@@ -4,12 +4,16 @@ This is a small Python CLI prototype that composes named profiles (YAML) into a 
 
 Quickstart
 
-1. Install dependencies:
+1. Install dependencies (using uv):
 
-   pip install -r requirements.txt
+   uv sync
 
-2. Run an example (dry run):
+2. Run tests (using uv):
 
-   python -m bwrap_compose combine github-copilot python-uv --dry-run
+   uv run pytest
+
+3. Run an example (dry run) via uv (runs the console script installed from pyproject.toml):
+
+   uv run bwrap-compose -- python-uv --dry-run
 
 See examples/profiles for sample profile YAML files.

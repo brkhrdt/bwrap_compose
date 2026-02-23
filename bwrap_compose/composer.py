@@ -13,6 +13,7 @@ def compose_profiles(profile_dicts: List[Dict[str, Any]]) -> Dict[str, Any]:
         'mounts': [],
         'env': {},
         'args': [],
+        'run': None,
     }
 
     for p in profile_dicts:
@@ -28,5 +29,8 @@ def compose_profiles(profile_dicts: List[Dict[str, Any]]) -> Dict[str, Any]:
         for a in args:
             if a not in merged['args']:
                 merged['args'].append(a)
+
+        if 'run' in p:
+            merged['run'] = p.get('run')
 
     return merged

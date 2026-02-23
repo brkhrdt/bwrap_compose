@@ -7,7 +7,15 @@ def build_bwrap_command(config: Dict[str, Any], run_cmd: List[str] = None) -> Li
     This is a conservative, minimal builder for the prototype.
     """
     if run_cmd is None:
-        run_cmd = ['/bin/sh', '-lc', 'exec /bin/bash --login']
+        run_spec = config.get('run') if isinstance(config, dict) else None
+        if run_spec is None:
+            run_cmd = ['/usr/bin/env', 'uv']
+        elif isinstance(run_spec, str):
+            run_cmd = ['/bin/sh', '-lc', 'exec ' + run_spec]
+        elif isinstance(run_spec, list):
+            run_cmd = run_spec
+        else:
+            run_cmd = ['/usr/bin/env', 'uv']
 
     cmd: List[str] = ['bwrap']
 

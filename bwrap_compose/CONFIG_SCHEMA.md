@@ -5,7 +5,7 @@ Fields:
 - mounts: sequence of mappings (host: string, container: string, mode: optional string 'ro' or 'rw' (default 'rw'))
 - env: mapping of environment variables to string values
 - args: sequence of extra bwrap arguments (strings)
-- run: optional command to run inside the bwrap container; can be a string or a list (recommended: list)
+- run: optional command to run inside the bwrap container; can be a string or a list (recommended: list). If omitted, the prototype defaults to running `uv`.
 - description: optional string
 
 Merging semantics:

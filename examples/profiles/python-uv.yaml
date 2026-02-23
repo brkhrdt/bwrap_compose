@@ -6,3 +6,5 @@ env:
   PYTHONUNBUFFERED: "1"
 args:
   - "--unshare-pid"
+run:
+  - "uv"
