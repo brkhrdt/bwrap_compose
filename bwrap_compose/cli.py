@@ -8,6 +8,7 @@ from .config import load_profile
 from .composer import compose_profiles
 from .builder import build_bwrap_command
 from .parser import parse_bwrap_command
+from .conflicts import detect_conflicts
 
 app = typer.Typer(help="Compose bubblewrap profiles into a single bwrap command")
 
@@ -50,6 +51,29 @@ def _resolve_profile_path(
     raise typer.Exit(code=2)
 
 
+def _handle_conflicts(profile_dicts, merged, interactive=False):
+    """Detect and optionally prompt about conflicts. Returns True to proceed."""
+    found = detect_conflicts(profile_dicts, merged)
+    if not found:
+        return True
+
+    for c in found:
+        prefix = "⚠ WARNING" if c.severity == "warning" else "✖ ERROR"
+        typer.echo(f"  {prefix} [{c.kind}]: {c.description}", err=True)
+
+    errors = [c for c in found if c.severity == "error"]
+    if errors and not interactive:
+        typer.echo("Aborting due to errors. Use --check-conflicts=prompt to override.", err=True)
+        return False
+
+    if interactive:
+        typer.echo("")
+        proceed = typer.confirm("Conflicts detected. Proceed anyway?", default=False)
+        return proceed
+
+    return True
+
+
 @app.command()
 def combine(
     profiles: List[str] = typer.Argument(..., help="Profile names or file paths"),
@@ -61,6 +85,10 @@ def combine(
     config_dir: Optional[List[str]] = typer.Option(
         None, "--config-dir", "-C",
         help="Additional directory to search for profile YAML files (may be repeated)",
+    ),
+    check_conflicts: Optional[str] = typer.Option(
+        None, "--check-conflicts",
+        help="Conflict checking mode: 'warn' (print warnings), 'prompt' (interactive), or 'error' (abort on conflicts)",
     ),
 ):
     """Combine one or more profile files/names into a single bwrap command.
@@ -76,6 +104,12 @@ def combine(
     ]
 
     merged = compose_profiles(profile_dicts)
+
+    if check_conflicts:
+        interactive = check_conflicts == "prompt"
+        if not _handle_conflicts(profile_dicts, merged, interactive=interactive):
+            raise typer.Exit(code=1)
+
     cmd_list = build_bwrap_command(merged)
     cmd_str = " ".join(shlex.quote(a) for a in cmd_list)
 
@@ -102,6 +136,10 @@ def merge_commands(
     output_script: Optional[str] = typer.Option(
         None, "--output-script", "-o", help="Write shell script to path"
     ),
+    check_conflicts: Optional[str] = typer.Option(
+        None, "--check-conflicts",
+        help="Conflict checking mode: 'warn', 'prompt', or 'error'",
+    ),
 ):
     """Merge two or more raw bwrap command strings into a single command.
 
@@ -121,6 +159,12 @@ def merge_commands(
 
     profiles = [parse_bwrap_command(c) for c in commands]
     merged = compose_profiles(profiles)
+
+    if check_conflicts:
+        interactive = check_conflicts == "prompt"
+        if not _handle_conflicts(profiles, merged, interactive=interactive):
+            raise typer.Exit(code=1)
+
     cmd_list = build_bwrap_command(merged)
     cmd_str = " ".join(shlex.quote(a) for a in cmd_list)
 
