@@ -67,6 +67,7 @@ class TestCombineWithConfigDir:
         (d / "test-profile.json").write_text(json.dumps(profile))
 
         result = runner.invoke(app, [
+            "combine",
             "--config-dir", str(d),
             "test-profile",
             "--dry-run",
@@ -83,6 +84,7 @@ class TestCombineWithConfigDir:
         (d2 / "p2.json").write_text(json.dumps({"env": {"B": "2"}, "run": ["/usr/bin/echo"]}))
 
         result = runner.invoke(app, [
+            "combine",
             "--config-dir", str(d1),
             "--config-dir", str(d2),
             "p1", "p2",
@@ -94,6 +96,7 @@ class TestCombineWithConfigDir:
 
     def test_missing_profile_shows_error(self, tmp_path):
         result = runner.invoke(app, [
+            "combine",
             "--config-dir", str(tmp_path),
             "nonexistent",
             "--dry-run",

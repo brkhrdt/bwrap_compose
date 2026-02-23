@@ -7,6 +7,7 @@ import typer
 from .config import load_profile
 from .composer import compose_profiles
 from .builder import build_bwrap_command
+from .parser import parse_bwrap_command
 
 app = typer.Typer(help="Compose bubblewrap profiles into a single bwrap command")
 
@@ -75,6 +76,51 @@ def combine(
     ]
 
     merged = compose_profiles(profile_dicts)
+    cmd_list = build_bwrap_command(merged)
+    cmd_str = " ".join(shlex.quote(a) for a in cmd_list)
+
+    if dry_run:
+        typer.echo(cmd_str)
+
+    if output_script:
+        out = Path(output_script)
+        out.write_text("#!/usr/bin/env sh\nexec " + cmd_str + "\n")
+        out.chmod(0o755)
+        typer.echo(f"Wrote script to {out}")
+
+    if run:
+        subprocess.run(cmd_list)
+
+
+@app.command("merge-commands")
+def merge_commands(
+    commands: List[str] = typer.Argument(
+        ..., help="Two or more bwrap command strings to merge"
+    ),
+    dry_run: bool = typer.Option(True, "--dry-run/--no-dry-run", help="Print command"),
+    run: bool = typer.Option(False, "--run", help="Execute the merged command"),
+    output_script: Optional[str] = typer.Option(
+        None, "--output-script", "-o", help="Write shell script to path"
+    ),
+):
+    """Merge two or more raw bwrap command strings into a single command.
+
+    Each argument should be a complete bwrap command line (quoted as a single
+    shell argument).  The commands are parsed, their profiles merged using the
+    standard composition rules, and a single unified command is emitted.
+
+    Example::
+
+        bwrap-compose merge-commands \\
+          "bwrap --ro-bind / / --setenv A 1 -- /bin/sh" \\
+          "bwrap --bind /tmp /tmp --setenv B 2 -- /bin/sh"
+    """
+    if len(commands) < 2:
+        typer.echo("At least two bwrap commands are required.", err=True)
+        raise typer.Exit(code=2)
+
+    profiles = [parse_bwrap_command(c) for c in commands]
+    merged = compose_profiles(profiles)
     cmd_list = build_bwrap_command(merged)
     cmd_str = " ".join(shlex.quote(a) for a in cmd_list)
 
