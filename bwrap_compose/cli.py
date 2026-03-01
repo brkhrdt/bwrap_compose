@@ -15,6 +15,7 @@ from .composer import compose_profiles
 from .builder import build_bwrap_command
 from .parser import parse_bwrap_command
 from .conflicts import detect_conflicts
+from .manifest import manifest_from_binary
 
 app = typer.Typer(help="Compose bubblewrap profiles into a single bwrap command")
 
@@ -307,6 +308,55 @@ def from_command(
         out = Path(output)
         out.write_text(text)
         typer.echo(f"Wrote profile to {out}")
+    else:
+        typer.echo(text, nl=False)
+
+
+@app.command("from-binary")
+def from_binary(
+    binary: str = typer.Argument(..., help="Path or name of the binary to create a manifest for"),
+    output: Optional[str] = typer.Option(
+        None, "--output", "-o", help="Write profile YAML to a file instead of stdout"
+    ),
+    description: Optional[str] = typer.Option(
+        None, "--description", "-d", help="Optional description for the manifest"
+    ),
+):
+    """Generate a minimal sandbox profile for a binary using ldd.
+
+    Inspects the binary with ``ldd`` to discover shared library dependencies,
+    then generates a profile that bind-mounts only the binary and its libraries
+    into a tmpfs-based sandbox.
+
+    Example::
+
+        bwrapc from-binary grep
+        bwrapc from-binary /usr/bin/grep -o tools/grep.yaml
+    """
+    try:
+        profile = manifest_from_binary(binary, description=description)
+    except (FileNotFoundError, RuntimeError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1)
+
+    # Remove empty/default fields for a clean profile.
+    cleaned = {}
+    key_order = ("description", "mounts", "env", "tmpfs", "dev", "proc", "args", "run")
+    for key in key_order:
+        val = profile.get(key)
+        if val:
+            cleaned[key] = val
+
+    if _yaml is not None:
+        text = _yaml.dump(cleaned, default_flow_style=False, sort_keys=False)
+    else:
+        text = json.dumps(cleaned, indent=2) + "\n"
+
+    if output:
+        out = Path(output)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(text)
+        typer.echo(f"Wrote manifest to {out}")
     else:
         typer.echo(text, nl=False)
 
