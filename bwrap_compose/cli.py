@@ -1,6 +1,8 @@
 from typing import List, Optional
 from pathlib import Path
 import json
+import os
+import re
 import shlex
 import subprocess
 import typer
@@ -18,6 +20,15 @@ from .conflicts import detect_conflicts
 from .manifest import manifest_from_binary
 
 app = typer.Typer(help="Compose bubblewrap profiles into a single bwrap command")
+
+_ENV_VAR_RE = re.compile(r'^(\$\{?\w+\}?|~)(/.+)?$')
+
+
+def _shell_quote(s: str) -> str:
+    """Quote *s* for shell, but leave ``$VAR`` and ``~/`` references unquoted."""
+    if _ENV_VAR_RE.match(s):
+        return s
+    return shlex.quote(s)
 
 # Default directories searched (in order) when a profile name is given.
 _BUILTIN_PROFILE_DIR = Path(__file__).resolve().parents[1] / "examples" / "profiles"
@@ -123,7 +134,7 @@ def combine(
 
     run_cmd = shlex.split(command) if command else None
     cmd_list = build_bwrap_command(merged, run_cmd=run_cmd)
-    cmd_str = " ".join(shlex.quote(a) for a in cmd_list)
+    cmd_str = " ".join(_shell_quote(a) for a in cmd_list)
 
     if dry_run:
         typer.echo(cmd_str)
@@ -135,7 +146,7 @@ def combine(
         typer.echo(f"Wrote script to {out}")
 
     if run:
-        subprocess.run(cmd_list)
+        subprocess.run([os.path.expandvars(os.path.expanduser(a)) for a in cmd_list])
 
 
 @app.command("merge-commands")
@@ -183,7 +194,7 @@ def merge_commands(
 
     run_cmd = shlex.split(command) if command else None
     cmd_list = build_bwrap_command(merged, run_cmd=run_cmd)
-    cmd_str = " ".join(shlex.quote(a) for a in cmd_list)
+    cmd_str = " ".join(_shell_quote(a) for a in cmd_list)
 
     if dry_run:
         typer.echo(cmd_str)
@@ -195,7 +206,7 @@ def merge_commands(
         typer.echo(f"Wrote script to {out}")
 
     if run:
-        subprocess.run(cmd_list)
+        subprocess.run([os.path.expandvars(os.path.expanduser(a)) for a in cmd_list])
 
 
 @app.command("validate")

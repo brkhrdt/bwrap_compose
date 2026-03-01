@@ -1,5 +1,4 @@
 from typing import Dict, Any, List, Optional, Set
-import os
 
 # Modes recognised as read-only in profile YAML.
 _RO_MODES = {"ro", "readonly"}
@@ -37,16 +36,15 @@ def _as_list(val):
 
 
 def _expand_path(path: str) -> str:
-    """Expand ``~`` and ``$VAR`` references in *path*.
+    """Strip single-quote escaping from *path*; leave ``$VAR`` / ``~`` as-is.
 
-    If the path is wrapped in literal single quotes (e.g. ``'$HOME/foo'``),
-    the quotes are stripped and no expansion is performed so that the value
-    is kept as-is for use in generated shell scripts.
+    Values wrapped in literal single quotes (e.g. ``'$HOME/foo'``) have the
+    quotes stripped.  Plain ``$VAR`` and ``~`` references are intentionally
+    left unexpanded so the generated command remains portable — the shell or
+    the caller is responsible for expansion when the command is executed.
     """
     if len(path) >= 2 and path.startswith("'") and path.endswith("'"):
         return path[1:-1]
-    path = os.path.expanduser(path)
-    path = os.path.expandvars(path)
     return path
 
 
@@ -64,13 +62,13 @@ def _categorise_args(args: List[str]):
             namespace.append(tok)
             i += 1
         elif tok in _DIR_FLAGS and i + 1 < len(args):
-            dirs += [tok, args[i + 1]]
+            dirs += [tok, _expand_path(args[i + 1])]
             i += 2
         elif tok in _LATE_FLAGS and i + 1 < len(args):
-            late += [tok, args[i + 1]]
+            late += [tok, _expand_path(args[i + 1])]
             i += 2
         elif tok in _ONE_ARG_FLAGS and i + 1 < len(args):
-            other += [tok, args[i + 1]]
+            other += [tok, _expand_path(args[i + 1])]
             i += 2
         else:
             other.append(tok)

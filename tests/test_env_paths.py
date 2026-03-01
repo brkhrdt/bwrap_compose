@@ -1,4 +1,4 @@
-"""Tests for environment variable and tilde expansion in mount paths."""
+"""Tests for single-quote stripping in paths (env vars and tilde are left as-is)."""
 
 import os
 from unittest import mock
@@ -7,26 +7,24 @@ from bwrap_compose.builder import build_bwrap_command, _expand_path
 
 
 class TestExpandPath:
-    def test_tilde_expanded(self):
+    def test_tilde_not_expanded(self):
         result = _expand_path("~/Documents")
-        assert result == os.path.expanduser("~/Documents")
-        assert "~" not in result
+        assert result == "~/Documents"
 
-    def test_env_var_expanded(self):
+    def test_env_var_not_expanded(self):
         with mock.patch.dict(os.environ, {"MY_VAR": "/custom/path"}):
             result = _expand_path("$MY_VAR/sub")
-        assert result == "/custom/path/sub"
+        assert result == "$MY_VAR/sub"
 
-    def test_home_env_expanded(self):
-        home = os.environ.get("HOME", "/home/test")
+    def test_home_env_not_expanded(self):
         result = _expand_path("$HOME/.config")
-        assert result == f"{home}/.config"
+        assert result == "$HOME/.config"
 
-    def test_single_quoted_not_expanded(self):
+    def test_single_quoted_strips_quotes(self):
         result = _expand_path("'$HOME/.config'")
         assert result == "$HOME/.config"
 
-    def test_single_quoted_tilde_not_expanded(self):
+    def test_single_quoted_tilde_strips_quotes(self):
         result = _expand_path("'~/Documents'")
         assert result == "~/Documents"
 
@@ -45,40 +43,35 @@ class TestExpandPath:
 
 
 class TestBuildWithEnvPaths:
-    def test_tilde_in_mount_expanded(self):
-        home = os.path.expanduser("~")
+    def test_tilde_in_mount_kept(self):
         cfg = {
             "mounts": [{"host": "~/.config", "container": "~/.config", "mode": "ro"}],
             "run": ["/bin/echo"],
         }
         cmd = build_bwrap_command(cfg)
-        assert f"{home}/.config" in cmd
+        assert "~/.config" in cmd
 
-    def test_env_var_in_mount_expanded(self):
-        home = os.environ.get("HOME", "/home/test")
+    def test_env_var_in_mount_kept(self):
         cfg = {
             "mounts": [{"host": "$HOME/.config", "container": "$HOME/.config", "mode": "ro"}],
             "run": ["/bin/echo"],
         }
         cmd = build_bwrap_command(cfg)
-        assert f"{home}/.config" in cmd
+        assert "$HOME/.config" in cmd
 
-    def test_single_quoted_mount_not_expanded(self):
+    def test_single_quoted_mount_strips_quotes(self):
         cfg = {
             "mounts": [{"host": "'$HOME/.config'", "container": "'$HOME/.config'", "mode": "ro"}],
             "run": ["/bin/echo"],
         }
         cmd = build_bwrap_command(cfg)
         assert "$HOME/.config" in cmd
-        # The literal $HOME should be in the command, not expanded
-        home = os.environ.get("HOME", "/home/test")
         idx = cmd.index("--ro-bind")
         assert cmd[idx + 1] == "$HOME/.config"
         assert cmd[idx + 2] == "$HOME/.config"
 
     def test_mixed_mounts(self):
-        """One mount expanded, one kept literal."""
-        home = os.path.expanduser("~")
+        """Both mounts keep their references; single-quoted strips quotes."""
         cfg = {
             "mounts": [
                 {"host": "~/.config", "container": "/config", "mode": "ro"},
@@ -88,7 +81,7 @@ class TestBuildWithEnvPaths:
         }
         cmd = build_bwrap_command(cfg)
         ro_idx = cmd.index("--ro-bind")
-        assert cmd[ro_idx + 1] == f"{home}/.config"
+        assert cmd[ro_idx + 1] == "~/.config"
         bind_idx = cmd.index("--bind")
         assert cmd[bind_idx + 1] == "$HOME/data"
 
@@ -99,4 +92,4 @@ class TestBuildWithEnvPaths:
                 "run": ["/bin/echo"],
             }
             cmd = build_bwrap_command(cfg)
-            assert "/opt/myapp/lib" in cmd
+            assert "$APP_DIR/lib" in cmd
