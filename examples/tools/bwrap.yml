@@ -1,0 +1,46 @@
+mounts:
+- host: /usr/bin/bwrap
+  container: /usr/bin/bwrap
+  mode: ro
+- host: /usr/lib/libcap.so.2
+  container: /usr/lib/libcap.so.2
+  mode: ro
+- host: /usr/lib/libcap.so.2.77
+  container: /usr/lib/libcap.so.2.77
+  mode: ro
+- host: /usr/lib/libgcc_s.so.1
+  container: /usr/lib/libgcc_s.so.1
+  mode: ro
+- host: /usr/lib/libc.so.6
+  container: /usr/lib/libc.so.6
+  mode: ro
+- host: /usr/lib64/ld-linux-x86-64.so.2
+  container: /usr/lib64/ld-linux-x86-64.so.2
+  mode: ro
+- host: /usr/lib/ld-linux-x86-64.so.2
+  container: /usr/lib/ld-linux-x86-64.so.2
+  mode: ro
+- host: /tmp
+  container: /tmp
+  mode: rw
+args:
+- --unshare-all
+- --die-with-parent
+- --new-session
+- --proc
+- /proc
+- --dir
+- /lib64
+- --dir
+- /usr
+- --dir
+- /usr/bin
+- --dir
+- /usr/lib
+- --dir
+- /usr/lib64
+- --symlink
+- /usr/lib64/ld-linux-x86-64.so.2
+- /lib64/ld-linux-x86-64.so.2
+run:
+- /usr/bin/bwrap

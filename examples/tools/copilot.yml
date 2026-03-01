@@ -1,0 +1,41 @@
+mounts:
+- host: /run
+  container: /run
+  mode: ro
+- host: /etc
+  container: /etc
+  mode: ro
+- host: /lib
+  container: /lib
+  mode: ro
+- host: /dev
+  container: /dev
+  mode: rw
+- host: /usr
+  container: /usr
+  mode: ro
+- host: /bin/copilot
+  container: /bin/copilot
+  mode: ro
+- host: /lib64/ld-linux-x86-64.so.2
+  container: /lib64/ld-linux-x86-64.so.2
+  mode: ro
+- host: $HOME/.copilot
+  container: $HOME/.copilot
+  mode: rw
+- host: $PWD
+  container: $PWD
+  mode: rw
+tmpfs:
+- /tmp
+args:
+- --chdir
+- $PWD
+- --new-session
+- --die-with-parent
+- --unshare-all
+- --share-net
+run:
+- copilot
+- --model
+- gpt-5-mini
