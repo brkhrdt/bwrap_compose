@@ -1,4 +1,29 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
+
+# Flags that take exactly one argument — must be kept as (flag, value) pairs.
+_ONE_ARG_FLAGS = {
+    "--unsetenv", "--chdir", "--tmpfs", "--dir", "--proc", "--dev",
+    "--remount-ro", "--uid", "--gid", "--hostname", "--lock-file",
+    "--file", "--bind-data", "--ro-bind-data", "--perms", "--size", "--chmod",
+}
+
+
+def _group_args(args: List[str]) -> List[Tuple[str, ...]]:
+    """Group raw bwrap args into logical tuples for deduplication.
+
+    Zero-arg flags become 1-tuples, one-arg flags become 2-tuples,
+    and unrecognised tokens become 1-tuples.
+    """
+    groups: List[Tuple[str, ...]] = []
+    i = 0
+    while i < len(args):
+        if args[i] in _ONE_ARG_FLAGS and i + 1 < len(args):
+            groups.append((args[i], args[i + 1]))
+            i += 2
+        else:
+            groups.append((args[i],))
+            i += 1
+    return groups
 
 
 def compose_profiles(profile_dicts: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -7,7 +32,8 @@ def compose_profiles(profile_dicts: List[Dict[str, Any]]) -> Dict[str, Any]:
     Merge rules:
       - **mounts** – union, de-duplicated by exact dict equality.
       - **env** – later profiles override earlier keys.
-      - **args** – appended in order, duplicates skipped.
+      - **args** – appended in order, duplicates skipped (flag+value pairs
+        are treated as units).
       - **run** – last profile with a ``run`` key wins.
       - **tmpfs/dev/proc** – union of unique paths.
     """
@@ -20,6 +46,7 @@ def compose_profiles(profile_dicts: List[Dict[str, Any]]) -> Dict[str, Any]:
         "dev": [],
         "proc": [],
     }
+    seen_arg_groups: list[Tuple[str, ...]] = []
 
     for profile in profile_dicts:
         for mount in profile.get("mounts") or []:
@@ -28,9 +55,10 @@ def compose_profiles(profile_dicts: List[Dict[str, Any]]) -> Dict[str, Any]:
 
         merged["env"].update(profile.get("env") or {})
 
-        for arg in profile.get("args") or []:
-            if arg not in merged["args"]:
-                merged["args"].append(arg)
+        for group in _group_args(profile.get("args") or []):
+            if group not in seen_arg_groups:
+                seen_arg_groups.append(group)
+                merged["args"].extend(group)
 
         if "run" in profile:
             merged["run"] = profile["run"]

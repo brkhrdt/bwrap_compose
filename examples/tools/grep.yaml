@@ -1,0 +1,34 @@
+# grep tool manifest for bwrap_compose
+# Provides /bin/grep inside a minimal sandbox.
+
+mounts:
+  - host: /bin/grep
+    container: /bin/grep
+    mode: ro
+  - host: /usr/lib/libc.so.6
+    container: /usr/lib/libc.so.6
+    mode: ro
+  - host: /usr/lib/libpcre2-8.so.0
+    container: /usr/lib/libpcre2-8.so.0
+    mode: ro
+  - host: /lib64/ld-linux-x86-64.so.2
+    container: /lib64/ld-linux-x86-64.so.2
+    mode: ro
+
+tmpfs: /
+
+args:
+  - "--unshare-all"
+  - "--die-with-parent"
+  - "--new-session"
+  - "--dir"
+  - "/bin"
+  - "--dir"
+  - "/lib64"
+  - "--dir"
+  - "/usr/lib"
+  - "--dir"
+  - "/usr/lib/x86_64-linux-gnu"
+
+run:
+  - /bin/grep
