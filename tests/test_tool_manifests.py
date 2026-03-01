@@ -84,3 +84,64 @@ class TestLsManifest:
         cmd = build_bwrap_command(merged, run_cmd=["/bin/ls", "/nonexistent"])
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
         assert result.returncode != 0
+
+
+def _sh_profile() -> dict:
+    """Profile that adds /bin/sh and its dependencies for piping commands."""
+    return {
+        "mounts": [
+            {"host": "/bin/sh", "container": "/bin/sh", "mode": "ro"},
+            {"host": "/usr/lib/libreadline.so.8", "container": "/usr/lib/libreadline.so.8", "mode": "ro"},
+            {"host": "/usr/lib/libncursesw.so.6", "container": "/usr/lib/libncursesw.so.6", "mode": "ro"},
+        ],
+    }
+
+
+class TestMergedTools:
+    def test_merged_dry_run_has_both_tools(self):
+        grep_profile = load_profile(os.path.join(TOOLS_DIR, "grep.yaml"))
+        ls_profile = load_profile(os.path.join(TOOLS_DIR, "ls.yaml"))
+        merged = compose_profiles([ls_profile, grep_profile])
+        cmd = build_bwrap_command(merged)
+        cmd_str = " ".join(cmd)
+        assert "--ro-bind /bin/ls /bin/ls" in cmd_str
+        assert "--ro-bind /bin/grep /bin/grep" in cmd_str
+
+    def test_ls_pipe_grep(self, tmp_path):
+        """Merge ls + grep manifests + sh, run 'ls | grep' via /bin/sh."""
+        (tmp_path / "apple.txt").write_text("a")
+        (tmp_path / "banana.txt").write_text("b")
+        (tmp_path / "cherry.log").write_text("c")
+
+        ls_profile = load_profile(os.path.join(TOOLS_DIR, "ls.yaml"))
+        grep_profile = load_profile(os.path.join(TOOLS_DIR, "grep.yaml"))
+        workdir = _workdir_profile(str(tmp_path))
+        sh = _sh_profile()
+        merged = compose_profiles([ls_profile, grep_profile, workdir, sh])
+
+        cmd = build_bwrap_command(
+            merged,
+            run_cmd=["/bin/sh", "-c", f"/bin/ls {tmp_path} | /bin/grep txt"],
+        )
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        assert result.returncode == 0
+        assert "apple.txt" in result.stdout
+        assert "banana.txt" in result.stdout
+        assert "cherry.log" not in result.stdout
+
+    def test_ls_pipe_grep_no_match(self, tmp_path):
+        """ls | grep with no matches returns non-zero."""
+        (tmp_path / "alpha.dat").write_text("a")
+
+        ls_profile = load_profile(os.path.join(TOOLS_DIR, "ls.yaml"))
+        grep_profile = load_profile(os.path.join(TOOLS_DIR, "grep.yaml"))
+        workdir = _workdir_profile(str(tmp_path))
+        sh = _sh_profile()
+        merged = compose_profiles([ls_profile, grep_profile, workdir, sh])
+
+        cmd = build_bwrap_command(
+            merged,
+            run_cmd=["/bin/sh", "-c", f"/bin/ls {tmp_path} | /bin/grep nomatch"],
+        )
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        assert result.returncode != 0
