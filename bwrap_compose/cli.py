@@ -85,6 +85,10 @@ def combine(
     profiles: List[str] = typer.Argument(..., help="Profile names or file paths"),
     dry_run: bool = typer.Option(True, "--dry-run/--no-dry-run", help="Print command"),
     run: bool = typer.Option(False, "--run", help="Execute the command"),
+    command: Optional[str] = typer.Option(
+        None, "--command", "-c",
+        help="Command to run inside the sandbox (overrides profile 'run' key)",
+    ),
     output_script: Optional[str] = typer.Option(
         None, "--output-script", "-o", help="Write shell script to path"
     ),
@@ -116,7 +120,8 @@ def combine(
         if not _handle_conflicts(profile_dicts, merged, interactive=interactive):
             raise typer.Exit(code=1)
 
-    cmd_list = build_bwrap_command(merged)
+    run_cmd = shlex.split(command) if command else None
+    cmd_list = build_bwrap_command(merged, run_cmd=run_cmd)
     cmd_str = " ".join(shlex.quote(a) for a in cmd_list)
 
     if dry_run:
@@ -139,6 +144,10 @@ def merge_commands(
     ),
     dry_run: bool = typer.Option(True, "--dry-run/--no-dry-run", help="Print command"),
     run: bool = typer.Option(False, "--run", help="Execute the merged command"),
+    command: Optional[str] = typer.Option(
+        None, "--command", "-c",
+        help="Command to run inside the sandbox (overrides merged 'run' key)",
+    ),
     output_script: Optional[str] = typer.Option(
         None, "--output-script", "-o", help="Write shell script to path"
     ),
@@ -171,7 +180,8 @@ def merge_commands(
         if not _handle_conflicts(profiles, merged, interactive=interactive):
             raise typer.Exit(code=1)
 
-    cmd_list = build_bwrap_command(merged)
+    run_cmd = shlex.split(command) if command else None
+    cmd_list = build_bwrap_command(merged, run_cmd=run_cmd)
     cmd_str = " ".join(shlex.quote(a) for a in cmd_list)
 
     if dry_run:
