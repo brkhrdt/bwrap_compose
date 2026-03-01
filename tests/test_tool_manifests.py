@@ -55,3 +55,32 @@ class TestGrepManifest:
         cmd = build_bwrap_command(merged, run_cmd=["/bin/grep", "nomatch", str(tmp_path / "data.txt")])
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
         assert result.returncode != 0
+
+
+class TestLsManifest:
+    def test_dry_run_has_correct_structure(self):
+        profile = load_profile(os.path.join(TOOLS_DIR, "ls.yaml"))
+        cmd = build_bwrap_command(profile)
+        cmd_str = " ".join(cmd)
+        assert "--tmpfs /" in cmd_str
+        assert "--ro-bind /bin/ls /bin/ls" in cmd_str
+        assert "--unshare-all" in cmd_str
+        assert cmd[-1] == "/bin/ls"
+
+    def test_ls_lists_files(self, tmp_path):
+        (tmp_path / "alpha.txt").write_text("a")
+        (tmp_path / "beta.txt").write_text("b")
+        profile = load_profile(os.path.join(TOOLS_DIR, "ls.yaml"))
+        merged = compose_profiles([profile, _workdir_profile(str(tmp_path))])
+        cmd = build_bwrap_command(merged, run_cmd=["/bin/ls", str(tmp_path)])
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        assert result.returncode == 0
+        assert "alpha.txt" in result.stdout
+        assert "beta.txt" in result.stdout
+
+    def test_ls_nonexistent_dir_returns_error(self, tmp_path):
+        profile = load_profile(os.path.join(TOOLS_DIR, "ls.yaml"))
+        merged = compose_profiles([profile, _workdir_profile(str(tmp_path))])
+        cmd = build_bwrap_command(merged, run_cmd=["/bin/ls", "/nonexistent"])
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        assert result.returncode != 0
